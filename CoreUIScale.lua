@@ -3,10 +3,21 @@ if not game:IsLoaded() then
 end
 
 local CoreGui = game:GetService("CoreGui")
+local StarterGui = game:GetService("StarterGui")
+
 local SCALE = tonumber(getgenv().CoreUIScale) or 0.65
 SCALE = math.clamp(SCALE, 0.40, 1.00)
 
-local TAG = "__JoaoCoreUIScale"
+local OLDTAG = "__JoaoCoreUIScale"
+local TAG = "__JoaoCoreUIScaleV2"
+
+local function removeOld()
+    for _,v in ipairs(CoreGui:GetDescendants()) do
+        if v:IsA("UIScale") and (v.Name == OLDTAG or v.Name == TAG) then
+            v:Destroy()
+        end
+    end
+end
 
 local function scale(obj)
     if not obj or not obj:IsA("GuiObject") then
@@ -24,36 +35,52 @@ local function scale(obj)
     s.Scale = SCALE
 end
 
-local function apply()
+local function disableBackpack()
+    pcall(function()
+        StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
+    end)
+
     local topContainer = CoreGui:FindFirstChild("TopBarApp")
     local top = topContainer and topContainer:FindFirstChild("TopBarApp")
 
     if top then
-        local left = top:FindFirstChild("UnibarLeftFrame")
-        local menu = left and left:FindFirstChild("UnibarMenu")
-        local menuIcon = top:FindFirstChild("MenuIconHolder")
+        for _,v in ipairs(top:GetDescendants()) do
+            if v:IsA("GuiObject") then
+                local n = string.lower(v.Name)
 
-        scale(menu)
-        scale(menuIcon)
-    end
-
-    local experienceChat = CoreGui:FindFirstChild("ExperienceChat")
-
-    if experienceChat then
-        scale(experienceChat:FindFirstChild("appLayout"))
-    end
-
-    local robloxGui = CoreGui:FindFirstChild("RobloxGui")
-
-    if robloxGui then
-        local backpack = robloxGui:FindFirstChild("Backpack")
-
-        if backpack then
-            scale(backpack:FindFirstChild("Hotbar"))
-            scale(backpack:FindFirstChild("Inventory"))
+                if string.find(n, "backpack", 1, true)
+                or string.find(n, "inventory", 1, true) then
+                    v.Visible = false
+                end
+            end
         end
     end
 end
+
+local function apply()
+    for _,v in ipairs(CoreGui:GetDescendants()) do
+        if v:IsA("UIScale") and v.Name == OLDTAG then
+            v:Destroy()
+        end
+    end
+
+    disableBackpack()
+
+    local topContainer = CoreGui:FindFirstChild("TopBarApp")
+    local top = topContainer and topContainer:FindFirstChild("TopBarApp")
+
+    if top then
+        scale(top)
+    end
+
+    local chat = CoreGui:FindFirstChild("ExperienceChat")
+
+    if chat then
+        scale(chat:FindFirstChild("appLayout"))
+    end
+end
+
+removeOld()
 
 for _ = 1, 24 do
     pcall(apply)
@@ -61,11 +88,19 @@ for _ = 1, 24 do
 end
 
 CoreGui.DescendantAdded:Connect(function(obj)
+    if obj:IsA("UIScale") and obj.Name == OLDTAG then
+        task.defer(function()
+            pcall(function()
+                obj:Destroy()
+            end)
+        end)
+        return
+    end
+
     if obj.Name == "TopBarApp"
-    or obj.Name == "UnibarMenu"
-    or obj.Name == "MenuIconHolder"
+    or obj.Name == "ExperienceChat"
     or obj.Name == "appLayout"
-    or obj.Name == "Backpack" then
+    or string.find(string.lower(obj.Name), "backpack", 1, true) then
         task.defer(function()
             task.wait(0.15)
             pcall(apply)
@@ -73,4 +108,10 @@ CoreGui.DescendantAdded:Connect(function(obj)
     end
 end)
 
-print("[CoreUI Scale] " .. tostring(math.floor(SCALE * 100)) .. "%")
+task.spawn(function()
+    while task.wait(1) do
+        disableBackpack()
+    end
+end)
+
+print("[CoreUI Scale V2] " .. tostring(math.floor(SCALE * 100)) .. "%")
